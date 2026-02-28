@@ -12,7 +12,7 @@ import av
 # Page Configuration
 st.set_page_config(page_title="AI Anxiety Detector Pro", layout="wide")
 
-# iPhone and Android Connection Fix (STUN Servers)
+# iPhone, Android, and PC Connection Fix (STUN Servers)
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
@@ -23,7 +23,7 @@ RTC_CONFIGURATION = RTCConfiguration(
     ]}
 )
 
-# Custom CSS
+# Custom CSS for Professional Dashboard
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { border-right: 1px solid #e6e9ef; background-color: #f8f9fa; }
@@ -38,7 +38,7 @@ st.sidebar.header("📋 Student Portal")
 student_name = st.sidebar.text_input("Student Name:", placeholder="Enter Full Name")
 device_type = st.sidebar.selectbox("Select Device:", ["PC / Laptop", "Mobile (Front Cam)"])
 
-# Camera Constraint for Mobile
+# Camera Orientation for Mobile
 video_constraints = {"facingMode": "user"} if device_type == "Mobile (Front Cam)" else True
 
 if student_name:
@@ -50,17 +50,23 @@ if student_name:
         
         def video_frame_callback(frame):
             img = frame.to_ndarray(format="bgr24")
+            
+            # --- MIRROR EFFECT FIX (Sidha Camera) ---
+            # Horizontal flip (1) taaki left/right movement natural lage
+            img = cv2.flip(img, 1)
+            
             if not hasattr(video_frame_callback, "count"):
                 video_frame_callback.count = 0
                 video_frame_callback.emotions = {"Anxiety": 0, "Sadness": 0, "Stress": 0, "Happy": 0}
             
             video_frame_callback.count += 1
             try:
-                # --- TEXT POSITION FIX ---
-                # ਖੱਬੇ ਪਾਸੇ ਨਾਮ (Top Left)
+                # --- TEXT POSITIONING ---
+                # Left side te Student Name
                 cv2.putText(img, f"PROCTOR: {student_name.upper()}", (20, 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
 
+                # Emotion Analysis (Har 25 frames baad)
                 if video_frame_callback.count % 25 == 0:
                     results = DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
                     res = results[0]['emotion']
@@ -75,10 +81,11 @@ if student_name:
                 status = "HIGH ALERT" if e['Anxiety'] > 35 or e['Stress'] > 45 else "NORMAL"
                 color = (0, 0, 255) if status == "HIGH ALERT" else (0, 255, 0)
                 
-                # ਸੱਜੇ ਪਾਸੇ ਸਟੇਟਸ (Top Right)
+                # Right side te Status
                 cv2.putText(img, f"STATUS: {status}", (img.shape[1]-250, 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, color, 2)
 
+                # Save Data to CSV
                 if video_frame_callback.count % 100 == 0:
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     pd.DataFrame([[timestamp, e['Anxiety'], e['Sadness'], e['Stress'], e['Happy'], status]], 
@@ -89,7 +96,7 @@ if student_name:
             return av.VideoFrame.from_ndarray(img, format="bgr24")
 
         webrtc_streamer(
-            key="proctoring-final-v8",
+            key="proctoring-final-v9",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIGURATION,
             video_frame_callback=video_frame_callback,
@@ -119,6 +126,8 @@ if student_name:
                     
                     st.divider()
                     st.area_chart(df[["Fear %", "Sad %", "Stress %", "Happy %"]], height=200)
+                    
+                    st.subheader("📋 Session Log")
                     st.dataframe(df[["Time", "Fear %", "Sad %", "Stress %", "Happy %", "Status"]].tail(10), use_container_width=True)
         except Exception:
             st.info("ਸੈਸ਼ਨ ਅਪਡੇਟ ਹੋ ਰਿਹਾ ਹੈ...")
@@ -128,4 +137,4 @@ if student_name:
         with open(filename, "rb") as f:
             st.sidebar.download_button("📥 Download Report", f, file_name=filename, use_container_width=True)
 else:
-    st.info("Enter the student name and click Start")
+    st.info("Enter student name and click on start")
