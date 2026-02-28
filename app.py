@@ -2,23 +2,17 @@ import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 import cv2
 from deepface import DeepFace
+import numpy as np
 import pandas as pd
 from datetime import datetime
 import os
 import av
-import pyttsx3
 
-# Page Setup
+# Page Configuration
 st.set_page_config(page_title="AI Anxiety Detector Pro", layout="wide")
 
-# CSS for clean look
-st.markdown("""
-    <style>
-    [data-testid="stSidebar"] { border-right: 1px solid #e6e9ef; background-color: #f8f9fa; }
-    .main { background-color: #ffffff; }
-    </style>
-    """, unsafe_allow_html=True)
-
+# --- STEP 1: IPHONE & ANDROID CONNECTION FIX ---
+# Adding multiple Google STUN servers for better connectivity on mobile networks
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
@@ -29,14 +23,25 @@ RTC_CONFIGURATION = RTCConfiguration(
     ]}
 )
 
+# Custom CSS for Mobile Responsive UI
+st.markdown("""
+    <style>
+    [data-testid="stSidebar"] { border-right: 1px solid #e6e9ef; background-color: #f8f9fa; }
+    .main { background-color: #ffffff; }
+    @media (max-width: 640px) {
+        .main .block-container { padding: 1rem; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("🎓 AI-Based Exam Proctoring & Anxiety Detector")
 
 # Sidebar
 st.sidebar.header("📋 Student Portal")
 student_name = st.sidebar.text_input("Student Name:", placeholder="Enter Full Name")
 device_type = st.sidebar.selectbox("Select Device:", ["PC / Laptop", "Mobile (Front Cam)"])
-voice_on = st.sidebar.checkbox("Enable Voice Alerts", value=True)
 
+# Mobile camera orientation fix
 video_constraints = {"facingMode": "user"} if device_type == "Mobile (Front Cam)" else True
 
 if student_name:
@@ -54,11 +59,11 @@ if student_name:
             
             video_frame_callback.count += 1
             try:
-                # Text Directly on Video
+                # Direct Text on Video
                 cv2.putText(img, f"PROCTORING: {student_name.upper()}", (20, 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
 
-                if video_frame_callback.count % 20 == 0:
+                if video_frame_callback.count % 25 == 0:
                     results = DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
                     res = results[0]['emotion']
                     video_frame_callback.emotions = {
@@ -71,18 +76,20 @@ if student_name:
                 e = video_frame_callback.emotions
                 status = "HIGH ALERT" if e['Anxiety'] > 35 or e['Stress'] > 45 else "NORMAL"
                 color = (0, 0, 255) if status == "HIGH ALERT" else (0, 255, 0)
-                cv2.putText(img, f"STATUS: {status}", (img.shape[1]-220, 40), cv2.FONT_HERSHEY_DUPLEX, 0.7, color, 2)
+                cv2.putText(img, f"STATUS: {status}", (img.shape[1]-220, 40), 
+                            cv2.FONT_HERSHEY_DUPLEX, 0.7, color, 2)
 
                 if video_frame_callback.count % 100 == 0:
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     pd.DataFrame([[timestamp, e['Anxiety'], e['Sadness'], e['Stress'], e['Happy'], status]], 
                                  columns=["Time", "Fear %", "Sad %", "Stress %", "Happy %", "Status"]).to_csv(
                                  filename, mode='a', header=not os.path.exists(filename), index=False)
-            except: pass
+            except:
+                pass
             return av.VideoFrame.from_ndarray(img, format="bgr24")
 
         webrtc_streamer(
-            key="proctoring-final-v7",
+            key="proctoring-mobile-v1",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIGURATION,
             video_frame_callback=video_frame_callback,
@@ -92,38 +99,36 @@ if student_name:
 
     with col_e:
         st.subheader("📊 Session Analytics")
-        if os.path.exists(filename):
-            # --- ERROR FIX: pd.read_csv ਪੂਰਾ ਲਿਖੋ ---
-            df = pd.read_csv(filename) 
-            if not df.empty:
-                last_row = df.iloc[-1]
-                
-                # Progress Bars
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.write(f"😊 Happy: {last_row['Happy %']}%")
-                    st.progress(int(last_row['Happy %']) / 100)
-                    st.write(f"😟 Anxiety: {last_row['Fear %']}%")
-                    st.progress(int(last_row['Fear %']) / 100)
-                with c2:
-                    st.write(f"😢 Sadness: {last_row['Sad %']}%")
-                    st.progress(int(last_row['Sad %']) / 100)
-                    st.write(f"😠 Stress: {last_row['Stress %']}%")
-                    st.progress(int(last_row['Stress %']) / 100)
-                
-                st.divider()
-                st.subheader("📈 Combined Trends")
-                st.area_chart(df[["Fear %", "Sad %", "Stress %", "Happy %"]], height=250)
-                
-                st.subheader("📋 Session Log")
-                # ਸਾਰੇ emotions ਲੌਗ ਟੇਬਲ ਵਿੱਚ
-                st.dataframe(df[["Time", "Fear %", "Sad %", "Stress %", "Happy %", "Status"]].tail(10), use_container_width=True)
+        # --- STEP 2: STOP ERROR FIX (TRY-EXCEPT) ---
+        try:
+            if os.path.exists(filename):
+                df = pd.read_csv(filename)
+                if not df.empty:
+                    last_row = df.iloc[-1]
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write(f"😊 Happy: {last_row['Happy %']}%")
+                        st.progress(int(last_row['Happy %']) / 100)
+                        st.write(f"😟 Anxiety: {last_row['Fear %']}%")
+                        st.progress(int(last_row['Fear %']) / 100)
+                    with c2:
+                        st.write(f"😢 Sadness: {last_row['Sad %']}%")
+                        st.progress(int(last_row['Sad %']) / 100)
+                        st.write(f"😠 Stress: {last_row['Stress %']}%")
+                        st.progress(int(last_row['Stress %']) / 100)
+                    
+                    st.divider()
+                    st.area_chart(df[["Fear %", "Sad %", "Stress %", "Happy %"]], height=200)
+                    
+                    st.subheader("📋 Session Log")
+                    st.dataframe(df[["Time", "Fear %", "Sad %", "Stress %", "Happy %", "Status"]].tail(10), use_container_width=True)
+        except Exception:
+            st.info("ਸੈਸ਼ਨ ਅਪਡੇਟ ਹੋ ਰਿਹਾ ਹੈ... ਕਿਰਪਾ ਕਰਕੇ ਇੰਤਜ਼ਾਰ ਕਰੋ।")
 
-    # Sidebar Download Section
     if os.path.exists(filename):
         st.sidebar.markdown("---")
         with open(filename, "rb") as f:
             st.sidebar.download_button("📥 Download Report", f, file_name=filename, use_container_width=True)
 else:
-
-    st.info("Enter the student name and click START.")
+    st.info("Student Name ਭਰੋ ਅਤੇ START ਕਲਿੱਕ ਕਰੋ।")
