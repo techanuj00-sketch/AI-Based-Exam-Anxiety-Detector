@@ -1,3 +1,4 @@
+
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 import cv2
@@ -11,8 +12,7 @@ import av
 # Page Configuration
 st.set_page_config(page_title="AI Anxiety Detector Pro", layout="wide")
 
-# --- STEP 1: IPHONE & ANDROID CONNECTION FIX ---
-# Adding multiple Google STUN servers for better connectivity on mobile networks
+# iPhone and Android Connection Fix (STUN Servers)
 RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
@@ -23,14 +23,11 @@ RTC_CONFIGURATION = RTCConfiguration(
     ]}
 )
 
-# Custom CSS for Mobile Responsive UI
+# Custom CSS
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { border-right: 1px solid #e6e9ef; background-color: #f8f9fa; }
     .main { background-color: #ffffff; }
-    @media (max-width: 640px) {
-        .main .block-container { padding: 1rem; }
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,7 +38,7 @@ st.sidebar.header("📋 Student Portal")
 student_name = st.sidebar.text_input("Student Name:", placeholder="Enter Full Name")
 device_type = st.sidebar.selectbox("Select Device:", ["PC / Laptop", "Mobile (Front Cam)"])
 
-# Mobile camera orientation fix
+# Camera Constraint for Mobile
 video_constraints = {"facingMode": "user"} if device_type == "Mobile (Front Cam)" else True
 
 if student_name:
@@ -59,8 +56,9 @@ if student_name:
             
             video_frame_callback.count += 1
             try:
-                # Direct Text on Video
-                cv2.putText(img, f"PROCTORING: {student_name.upper()}", (20, 40), 
+                # --- TEXT POSITION FIX ---
+                # ਖੱਬੇ ਪਾਸੇ ਨਾਮ (Top Left)
+                cv2.putText(img, f"PROCTOR: {student_name.upper()}", (20, 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
 
                 if video_frame_callback.count % 25 == 0:
@@ -76,7 +74,9 @@ if student_name:
                 e = video_frame_callback.emotions
                 status = "HIGH ALERT" if e['Anxiety'] > 35 or e['Stress'] > 45 else "NORMAL"
                 color = (0, 0, 255) if status == "HIGH ALERT" else (0, 255, 0)
-                cv2.putText(img, f"STATUS: {status}", (img.shape[1]-220, 40), 
+                
+                # ਸੱਜੇ ਪਾਸੇ ਸਟੇਟਸ (Top Right)
+                cv2.putText(img, f"STATUS: {status}", (img.shape[1]-250, 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 0.7, color, 2)
 
                 if video_frame_callback.count % 100 == 0:
@@ -89,7 +89,7 @@ if student_name:
             return av.VideoFrame.from_ndarray(img, format="bgr24")
 
         webrtc_streamer(
-            key="proctoring-mobile-v1",
+            key="proctoring-final-v8",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIGURATION,
             video_frame_callback=video_frame_callback,
@@ -99,11 +99,10 @@ if student_name:
 
     with col_e:
         st.subheader("📊 Session Analytics")
-        # --- STEP 2: STOP ERROR FIX (TRY-EXCEPT) ---
         try:
             if os.path.exists(filename):
                 df = pd.read_csv(filename)
-                if not df.empty:
+                if not df.empty and "Happy %" in df.columns:
                     last_row = df.iloc[-1]
                     
                     c1, c2 = st.columns(2)
@@ -120,15 +119,13 @@ if student_name:
                     
                     st.divider()
                     st.area_chart(df[["Fear %", "Sad %", "Stress %", "Happy %"]], height=200)
-                    
-                    st.subheader("📋 Session Log")
                     st.dataframe(df[["Time", "Fear %", "Sad %", "Stress %", "Happy %", "Status"]].tail(10), use_container_width=True)
         except Exception:
-            st.info("ਸੈਸ਼ਨ ਅਪਡੇਟ ਹੋ ਰਿਹਾ ਹੈ... ਕਿਰਪਾ ਕਰਕੇ ਇੰਤਜ਼ਾਰ ਕਰੋ।")
+            st.info("ਸੈਸ਼ਨ ਅਪਡੇਟ ਹੋ ਰਿਹਾ ਹੈ...")
 
     if os.path.exists(filename):
         st.sidebar.markdown("---")
         with open(filename, "rb") as f:
             st.sidebar.download_button("📥 Download Report", f, file_name=filename, use_container_width=True)
 else:
-    st.info("Student Name ਭਰੋ ਅਤੇ START ਕਲਿੱਕ ਕਰੋ।")
+    st.info("Enter the student name and click Start")
