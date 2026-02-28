@@ -20,7 +20,13 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+    {"iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {"urls": ["stun:stun2.l.google.com:19302"]},
+        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:stun4.l.google.com:19302"]}
+    ]}
 )
 
 st.title("🎓 AI-Based Exam Proctoring & Anxiety Detector")
@@ -119,4 +125,5 @@ if student_name:
         with open(filename, "rb") as f:
             st.sidebar.download_button("📥 Download Report", f, file_name=filename, use_container_width=True)
 else:
+
     st.info("Enter the student name and click START.")
