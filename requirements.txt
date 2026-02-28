@@ -1,0 +1,5 @@
+streamlit
+streamlit-webrtc
+deepface
+opencv-python-headless
+pandas
