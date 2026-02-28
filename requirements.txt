@@ -3,3 +3,6 @@ streamlit-webrtc
 deepface
 opencv-python-headless
 pandas
+av
+pyttsx3
+tf-keras
